@@ -1,0 +1,110 @@
+{
+    "Triby": {
+        "total_packets": 25000,
+        "path": "IoT/Triby_0.csv"
+    },
+    "DropCam": {
+        "total_packets": 25000,
+        "path": "IoT/DropCam_1.csv"
+    },
+    "WthBaby": {
+        "total_packets": 25000,
+        "path": "IoT/WthBaby_2.csv"
+    },
+    "Belkin": {
+        "total_packets": 25000,
+        "path": "IoT/Belkin_3.csv"
+    },
+    "SamsungTab": {
+        "total_packets": 25000,
+        "path": "IoT/SamsungTab_4.csv"
+    },
+    "HP": {
+        "total_packets": 25000,
+        "path": "IoT/HP_5.csv"
+    },
+    "PIXSTAR": {
+        "total_packets": 25000,
+        "path": "IoT/PIXSTAR_6.csv"
+    },
+    "TPLink": {
+        "total_packets": 12465,
+        "path": "IoT/TPLink_7.csv"
+    },
+    "WthScale": {
+        "total_packets": 1950,
+        "path": "IoT/WthScale_8.csv"
+    },
+    "Insteon": {
+        "total_packets": 25000,
+        "path": "IoT/Insteon_9.csv"
+    },
+    "WthSleep": {
+        "total_packets": 25000,
+        "path": "IoT/WthSleep_10.csv"
+    },
+    "LiFX": {
+        "total_packets": 24823,
+        "path": "IoT/LiFX_11.csv"
+    },
+    "iHome": {
+        "total_packets": 13872,
+        "path": "IoT/iHome_12.csv"
+    },
+    "Amazon": {
+        "total_packets": 8982,
+        "path": "IoT/Amazon_13.csv"
+    },
+    "NestMini": {
+        "total_packets": 2612,
+        "path": "IoT/NestMini_14.csv"
+    },
+    "Sonos": {
+        "total_packets": 6382,
+        "path": "IoT/Sonos_15.csv"
+    },
+    "Arlo": {
+        "total_packets": 25000,
+        "path": "IoT/Arlo_16.csv"
+    },
+    "Borun": {
+        "total_packets": 4292,
+        "path": "IoT/Borun_17.csv"
+    },
+    "Eye": {
+        "total_packets": 25000,
+        "path": "IoT/Eye_18.csv"
+    },
+    "NestCam": {
+        "total_packets": 7484,
+        "path": "IoT/NestCam_19.csv"
+    },
+    "Netatmo": {
+        "total_packets": 10576,
+        "path": "IoT/Netatmo_20.csv"
+    },
+    "Eufy": {
+        "total_packets": 11207,
+        "path": "IoT/Eufy_21.csv"
+    },
+    "LG": {
+        "total_packets": 1782,
+        "path": "IoT/LG_22.csv"
+    },
+    "WiFi": {
+        "total_packets": 1202,
+        "path": "IoT/WiFi_23.csv"
+    },
+    "Cab": {
+        "total_packets": 17513,
+        "path": "IoT/Cab_24.csv"
+    },
+    "Philips": {
+        "total_packets": 16920,
+        "path": "IoT/Philips_25.csv"
+    },
+    "Somfy": {
+        "total_packets": 25000,
+        "path": "IoT/Somfy_26.csv"
+    }
+}

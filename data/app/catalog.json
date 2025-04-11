@@ -1,0 +1,38 @@
+{
+    "BitTorrent": {
+        "total_packets": 14999,
+        "path": "app/BitTorrent_0.csv"
+    },
+    "Facetime": {
+        "total_packets": 5999,
+        "path": "app/Facetime_1.csv"
+    },
+    "FTP": {
+        "total_packets": 25000,
+        "path": "app/FTP_2.csv"
+    },
+    "Gmail": {
+        "total_packets": 24999,
+        "path": "app/Gmail_3.csv"
+    },
+    "MySQL": {
+        "total_packets": 25000,
+        "path": "app/MySQL_4.csv"
+    },
+    "Outlook": {
+        "total_packets": 25000,
+        "path": "app/Outlook_5.csv"
+    },
+    "Miuref": {
+        "total_packets": 25000,
+        "path": "app/Miuref_6.csv"
+    },
+    "Tinba": {
+        "total_packets": 21873,
+        "path": "app/Tinba_7.csv"
+    },
+    "Zeus": {
+        "total_packets": 25000,
+        "path": "app/Zeus_8.csv"
+    }
+}

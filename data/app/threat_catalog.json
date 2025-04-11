@@ -1,0 +1,21 @@
+{
+    "Malware": {
+        "total_packets": 71873,
+        "paths": [
+            "./USTC/Miuref_6.csv",
+            "./USTC/Tinba_7.csv",
+            "./USTC/Zeus_8.csv"
+        ]
+    },
+    "Benign": {
+        "total_packets": 120997,
+        "paths": [
+            "./USTC/BitTorrent_0.csv",
+            "./USTC/Facetime_1.csv",
+            "./USTC/FTP_2.csv",
+            "./USTC/Gmail_3.csv",
+            "./USTC/MySQL_4.csv",
+            "./USTC/Outlook_5.csv"
+        ]
+    }
+}
