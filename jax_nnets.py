@@ -11,10 +11,12 @@ def softmax(y,axis=-1):
 
 ACTIVATION = {
     "relu":lambda s:jnp.where(s < 0,0,s),
-    "sigmoid":lambda s,temp=1:jax.nn.sigmoid(s*temp),
+    "sigmoid":lambda s,temp=1:jax.nn.sigmoid(s*temp),#1/(1+jnp.exp(-1 * s * temp))
     "tanh":jnp.tanh,
-    "softmax":softmax,
-    "prelu":lambda s,p=4:jnp.where(s < 0,s*p,s)
+    "softmax":jax.nn.softmax,
+    "prelu":lambda s,p=4:jnp.where(s < 0,s*p,s),
+    "softplus":lambda s,b=1:jax.nn.softplus(s*b)/b,#jnp.log(1 + jnp.exp(s * b))/b
+    "silu":jax.nn.silu #x / (1+jnp.exp(-s))
 }
 
 def get_activation_f(name):
@@ -49,6 +51,7 @@ dropout_layer = lambda X,dropout: X if dropout is None else (X * jax.random.bino
 
 normalize = lambda X,W=1,b=0,axis=-1: ( ( (X - X.mean(axis, keepdims=True))  * W)  / X.std(axis, keepdims=True)) +b
 
+RMSnorm = lambda X,W=1: X * jax.lax.rsqrt(jnp.mean(X**2,axis=-1,keepdims=True) + 1e-12) * W
 
 
 def cdma_decode(Z,gates):
@@ -294,8 +297,14 @@ class NNets:
                 i = np.argsort(np.absolute(self.weights-previous_weights))[:int(self.weights.shape[0] * prune_rate)]
                 self.weights[i] = 0
             
+        
         def fully_connected(n_inputs,n_outputs,**kwargs):
             return NNets.Parameters(tools.get_fc_shapes(n_inputs,n_outputs,**kwargs),**kwargs)
+        
+        def embedding(data_model,model_dim=40,**kwargs):
+            return NNets.Parameters(( 
+                (data_model.n_inputs,model_dim), [(nl+1,model_dim) for nl in data_model.n_lookups] 
+            ))
         
         def __init__(self,shapes=(),weights=None,path=None,n_outputs=None,requires_grad=True,**kwargs):
             self.weights = NNets.Parameters.Weights(shapes,weights)
@@ -323,7 +332,8 @@ class NNets:
             return {"type":"parameters",**self.weights.as_dict(),"n_outputs":self.n_outputs}
 
         def __str__(self):
-            return str(self.weights.shape)
+            return str(self.weights.shapes)
+            # return str(self.weights.shape)
         
         def __repr__(self):
             def to_str(shape,t=""):
@@ -335,8 +345,10 @@ class NNets:
             return to_str(self.weights.shapes)
         
         def size(self):
+            return np.prod(self.weights.shape)
+        
+        def footprint(self):
             return int(self.weights.weights.nbytes)
-            # return np.prod(self.weights.shape)
 
     class ParameterContainer:
         def __init__(self,path=None,n_outputs=None,requires_grad=True,**params):
@@ -355,7 +367,7 @@ class NNets:
         def _iter_vector(self):
             start = 0
             for p in self.param_list:
-                end = start + np.prod(p.weights.shape)
+                end = start + p.size()
                 yield (start,end),p
                 start = end
         
@@ -375,10 +387,14 @@ class NNets:
             return {"type":"container","parameters":{k:v._store() for k,v in self.param_dict.items()},"n_outputs":self.n_outputs}
 
         def __str__(self):
-            return str({k:str(v) for k,v in self.param_dict.items()})
+            return '\n'+'\n'.join(["\t"+k+ ": " + '\n\t'.join(str(v).split("\n")) for k,v in self.param_dict.items()])
+            # return str({k:str(v) for k,v in self.param_dict.items()})
         
         def size(self):
             return int( np.sum([p.size() for p in self.param_list]) )
+        
+        def footprint(self):
+            return int( np.sum([p.footprint() for p in self.param_list]) )
 
     class Module(abc.ABC):
         def _get_name(self,**kwargs):
@@ -395,6 +411,7 @@ class NNets:
             self.max_data_size = max_data_size
             self.error_trace = []
             self.params = kwargs
+            self.options = {}
             self.initialize(**kwargs)
 
 
@@ -403,7 +420,9 @@ class NNets:
             pass
 
         def __setitem__(self,name,parameters):
-            self.parameters[name].weights = parameters.weights
+            if not name in self.parameters:
+                self.parameters[name] = parameters
+            self.parameters[name].weights = parameters.weights.copy()
 
         def __getitem__(self,name):
             return self.parameters[name]
@@ -465,6 +484,8 @@ class NNets:
         def set_coef(self,*coef):
             [p.set_coef(c) for p,c in zip(self.parameters.values(),coef)]
 
+        def add_dropout(self,p=0.1,name="dropout"):
+            self.options[name] = Options.Dropout(p=p)
         
         def iter_batches(self,n_samples,error_f,test_f=None,n_batches=1,adaptive_rate=15,batch_size=-1,n_epochs=10000,
                          verbose=True,print_freq=1,use_best_Ws=True,early_exit=40,reset_checkpoint=False,shuffle_batches=True,**kwargs):
@@ -658,7 +679,7 @@ class NNets:
             return super().train(Xtr,Ttr,Xval,Tval,standardize=False,**kwargs)
 
     class Classifier(Regression):
-        def initialize(self,forward_f = lambda Ws,X:softmax(fc_layer(Ws,ACTIVATION["relu"],X)),loss_f="mse",**kwargs):
+        def initialize(self,forward_f = lambda Ws,X:softmax(fc_layer(Ws,ACTIVATION["relu"],X)),loss_f="nll",**kwargs):
             super().initialize(loss_f=loss_f,forward_f=forward_f,**kwargs)
         
         def evaluate(self,Xte,Tte,standardize=True):
@@ -691,36 +712,19 @@ class NNets:
             ]
             return cons[0] if len(data)==1 else cons
             
-# class Functions:
-
-#     def LSTM_cell(Ws,X,H_prev,C_prev):
-#         W_f,W_i,W_o,W_c = Ws
-#         input = jnp.concatenate((X,H_prev),axis=1)
-#         forget_gate = ACTIVATION["sigmoid"](linear_layer(W_f,input))
-#         input_gate = ACTIVATION["sigmoid"](linear_layer(W_i,input))
-#         output_gate = ACTIVATION["sigmoid"](linear_layer(W_o,input))
-#         output_gate = ACTIVATION["sigmoid"](linear_layer(W_o,input))
-#         input_hat = ACTIVATION["tanh"](linear_layer(W_c,input))
-#         C_new = (forget_gate * C_prev) + (input_gate * input_hat)
-#         H_new = layer_norm(output_gate * ACTIVATION["tanh"](C_prev))
-#         return H_new,C_new
-    
-#     def LSTM_layer(Ws,X):
-#         Hs = []
-#         hidden_state_init = jnp.zeros((X.shape[0],X.shape[2]*2))
-#         H = hidden_state_init[:,:X.shape[2]]
-#         C = hidden_state_init[:,X.shape[2]:]
-#         for i in range(X.shape[1]):
-#             H,C = Functions.LSTM_cell(Ws,X[:,i,:],H,C)
-#             Hs.append(H)
-#         return Hs
-    
-#     def reverse_LSTM_layer(Ws,X):
-#         return Functions.LSTM_layer(Ws,X[:,::-1,:])[:,::-1,:]
+class Functions:
 
 
-
-#     def convolutional_layer(Ws,X,stride):
-#         #X = (batch,rows,cols,channel)
-#         #Ws = (channel * patch_size, n_hiddens)
-#         pass
+    def convolution_1d(Ws,X,stride,padding=False):
+        #X = (batch,rows,channel)
+        #Ws = [(patch_size,channel, n_hiddens),(n_hiddens)]
+        Ws,bias = Ws
+        if padding:
+            X = jnp.concatenate(
+                (jnp.zeros((X.shape[0],Ws.shape[0],X.shape[-1])),X),
+                axis = 1
+            )
+        Y = X[:,:-Ws.shape[0]:stride,:] @ Ws[0,:,:]
+        for i in range(1,Ws.shape[0]):
+            Y = Y + (X[:,i:(X.shape[1] - Ws.shape[0]) + i:stride,:] @ Ws[i,:,:])
+        return Y + bias

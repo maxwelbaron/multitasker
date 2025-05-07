@@ -113,6 +113,12 @@ class DataManager:
                 if self.X is not None:
                     windows.append(self.X[indices[i:i+window_size],:])
                 window_labels.append(d)
+            # index_list.append(indices)
+            # device_windows = np.zeros((1+(len(indices)-window_size),window_size,self.X.shape[1]))
+            # for i in range(window_size):
+            #     device_windows[:,i,:] = self.X[indices[i:indices.shape[0]-(window_size-i-1)]]
+            # window_labels += [d]*len(device_windows)
+            # windows.append(device_windows)
         self.T_w = np.expand_dims(np.array(window_labels),-1)
         X_w = np.stack(windows,axis=0)
         if self.raw_data is None:

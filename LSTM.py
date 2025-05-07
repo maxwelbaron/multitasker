@@ -21,24 +21,22 @@ def LSTM_classifier(Ws,act_func,X,dropout=None):
     lstm_Ws,clf_Ws = Ws
     for i in range(len(lstm_Ws)):
         X = jax_nnets.dropout_layer(LSTM_layer(lstm_Ws[i],X),dropout=dropout)
+    # return jax_nnets.softmax(jax_nnets.fc_layer(clf_Ws,act_func,X[:,-1,:]))
     return jax_nnets.softmax(jax_nnets.fc_layer(clf_Ws,act_func,X[:,-1,:]))
 
 class LSTM(jax_nnets.NNets.Classifier):
-    def get_lstm_parameters(n_outputs,model_dim=40,n_lstm_layers=1,dec_hiddens=[40],**kwargs):
+    def get_lstm_parameters(self,model_dim=40,n_lstm_layers=1,dec_hiddens=[40],**kwargs):
         return jax_nnets.NNets.Parameters((
-            [((model_dim*2)+1,model_dim*4)]*n_lstm_layers,jax_nnets.tools.get_fc_shapes(model_dim,n_outputs,dec_hiddens)
+            [((model_dim*2)+1,model_dim*4)]*n_lstm_layers,jax_nnets.tools.get_fc_shapes(model_dim,self.data_model.n_outputs,dec_hiddens)
         ))
     
-    def set_parameters(self,model_dim=40,**kwargs):
+    def initialize(self,act_func="relu",model_dim=40,dec_dropout=0.1,**kwargs):
         self.parameters = {
             "embedding":jax_nnets.NNets.Parameters(( 
                 (self.data_model.n_inputs,model_dim), [(nl+1,model_dim) for nl in self.data_model.n_lookups] 
             )),
-            "lstm":LSTM.get_lstm_parameters(self.data_model.n_outputs,model_dim=model_dim,**kwargs)
+            "lstm":self.get_lstm_parameters(model_dim=model_dim,**kwargs)
         }
-    
-    def initialize(self,act_func="relu",dec_dropout=0.1,**kwargs):
-        self.set_parameters(**kwargs)
         self.options = {"dropout":jax_nnets.Options.Dropout(p=dec_dropout)}
         self.compile_model(
             jax_nnets.tools.LOSS_FUNCS["nll"],

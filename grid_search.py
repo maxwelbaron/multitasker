@@ -1,9 +1,11 @@
 import file_manager,os,pandas,itertools,numpy as np,time
 from data_manager import DataManager
 from LSTM import LSTM
+from MAMBA import MAMBA
 
 MODELS = {
-    "LSTM":LSTM
+    "LSTM":LSTM,
+    "MAMBA":MAMBA
 }
 
 
@@ -51,9 +53,8 @@ def grid_search(model_type="LSTM",n_folds=3,dataset="IoT",features="all",result_
         print("\n\n")
     return results
 
-
 grid_search(
-    model_type="LSTM",
+    model_type="MAMBA",
     features = "all",
     dataset = "IoT",
     adaptive_rate = [15],
@@ -64,8 +65,33 @@ grid_search(
     lr_early_exit = [10e-6],
     n_epochs = [3_000],
 
-    n_lstm_layers = [1,2],
-    dec_hiddens = [[80],[40],[]],
+    window_size = [50],
     model_dim = [40,80],
-    dec_dropout = [0.0,0.1]
+    n_blocks = [2,3],
+    dropout = [0.1,0.0],
+    ssm_act = ["silu"],
+    dec_act = ["relu","silu"],
+    pool_length = [1,25],
+    d_expand = [1,2],
+    d_state = [16],
+    patch_size = [4,8],
+    dt_rank_factor = [1,16],
+    n_hiddens = [[80]]
 )
+# grid_search(
+#     model_type="LSTM",
+#     features = "all",
+#     dataset = "IoT",
+#     adaptive_rate = [15],
+#     reset_checkpoint = [False],
+#     learning_rate = [0.01],
+#     n_batches = [1],
+#     lr_decay_factor = [3],
+#     lr_early_exit = [10e-6],
+#     n_epochs = [3_000],
+
+#     n_lstm_layers = [1,2],
+#     dec_hiddens = [[80],[40],[]],
+#     model_dim = [40,80],
+#     dec_dropout = [0.0,0.1]
+# )
