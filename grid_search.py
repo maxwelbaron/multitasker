@@ -73,7 +73,7 @@ grid_search(
     dec_act = ["relu","silu"],
     pool_length = [1,25],
     d_expand = [1,2],
-    d_state = [16],
+    d_state = [8,16],
     patch_size = [4,8],
     dt_rank_factor = [1,16],
     n_hiddens = [[80]]
