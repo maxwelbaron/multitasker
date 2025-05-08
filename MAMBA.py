@@ -47,7 +47,7 @@ class MAMBA(jax_nnets.NNets.Classifier):
             ssm_Ws = jax_nnets.NNets.ParameterContainer(
                 A = jax_nnets.NNets.Parameters(shapes=(d_in,d_state),weights = np.repeat(np.log(np.arange(1,d_state+1)),d_in,axis=0)),
                 D = jax_nnets.NNets.Parameters(shapes=(d_in,),weights = np.ones((d_in))),
-                W_x = jax_nnets.NNets.Parameters([(d_in,d_state*2 + dt_rank),(dt_rank+1,d_in) if dt_rank_factor > 1 else (d_in)]),
+                W_x = jax_nnets.NNets.Parameters([(d_in,d_state*2 + dt_rank),(dt_rank+1,d_in) if dt_rank_factor > 1 else (d_in,)]),
             ),
             output_Ws = jax_nnets.NNets.Parameters((d_in+1,model_dim)),
             norm_Ws = jax_nnets.NNets.Parameters(shapes=(model_dim,),weights = np.ones((model_dim))),
