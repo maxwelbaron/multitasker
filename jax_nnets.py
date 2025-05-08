@@ -1,7 +1,7 @@
 import numpy as np,jax,jax.numpy as jnp,json,abc,os,string,random
 from file_manager import store_file,load_file,access_locked_file,MODEL_DIRECTORY
 FLOAT_T= jnp.float32
-MAX_DATA_SIZE = 1000
+MAX_DATA_SIZE = 100000
 # MAX_DATA_SIZE = 2500
 
 
@@ -413,6 +413,9 @@ class NNets:
             self.params = kwargs
             self.options = {}
             self.initialize(**kwargs)
+            self.grad_batch_size = None
+            self.error_batch_size = None
+            self.forward_batch_size = None
 
 
         @abc.abstractmethod
@@ -439,44 +442,79 @@ class NNets:
         def size(self):
             return int(np.sum([v.size() for v in self.parameters.values()]))
         
+        def _error_f(self,*data):
+            return self.compiled["error"](self._get_weights(),*data,**self._get_options(inference=True))
+
+        def _grad_f(self,*data):
+            return self.compiled["grad"](self._get_weights(),*data,**self._get_options(inference=False))
+        
+        def _forward_f(self,*data):
+            return self.compiled["forward"](self._get_weights(inference=True),*data,**self._get_options(inference=True))
+        
+        def _run_dynamic_batch(self,f,*args,batch_size=None,min_batch_size=1):
+            batch_size = int(MAX_DATA_SIZE or batch_size)
+            size = args[0].shape[0] 
+            while batch_size > min_batch_size:
+                try:
+                    if size <= batch_size:
+                        return [(f(*args),1)],batch_size
+                    return [(f(*[a[batch:batch+batch_size,:] if isinstance(a, jnp.ndarray) else a for a in args]),min(size-batch,batch_size)/size) for batch in range(0,size,batch_size)],batch_size
+                except RuntimeError as e:
+                    if "Resource exhausted" in str(e) or "out of memory" in str(e):
+                        batch_size = batch_size // 2
+                    else: 
+                        raise e
+            raise Exception("unable to find batch size that fits memory")
+        
+
         def grad_f(self,*args):
-            # return self._map(self.grad_f,*args)
-            size = args[0].shape[0]
-            if size <= self.max_data_size:
-                return self._grad_f(*args)
-            grads = None
-            is_list = False
-            for batch in range(0,size,self.max_data_size):
-                multiplier = min(size-batch,self.max_data_size) / self.max_data_size
-                grad = self._grad_f(*[a[batch:batch+self.max_data_size,:] if isinstance(a, jnp.ndarray) else a for a in args])
-                if grads is None:
-                    is_list = (type(grad) == list)
-                    grads = [g*multiplier for g in grad] if is_list else grad*multiplier
-                    continue 
-                if is_list:
-                    for i in range(len(grad)):
-                        grads[i] = grads[i] + (grad[i] * multiplier) 
-                else:
-                    grads += (grad * multiplier)
-            return grads
+            res,self.grad_batch_size = self._run_dynamic_batch(self._grad_f,*args,batch_size=self.grad_batch_size)
+            if type(res[0][0]) == list:
+                grads = [(wg * res[0][1]) for wg in res[0][0]]
+                for batch in res[1:]:
+                    for i,g in enumerate(batch):
+                        grads[i] = grads[i] + (g[0] * g[1])
+                return grads
+            return np.sum([g[0] * g[1] for g in res],axis=0)
+            # size = args[0].shape[0]
+            # if size <= self.max_data_size:
+            #     return self._grad_f(*args)
+            # grads = None
+            # is_list = False
+            # for batch in range(0,size,self.max_data_size):
+            #     multiplier = min(size-batch,self.max_data_size) / self.max_data_size
+            #     grad = self._grad_f(*[a[batch:batch+self.max_data_size,:] if isinstance(a, jnp.ndarray) else a for a in args])
+            #     if grads is None:
+            #         is_list = (type(grad) == list)
+            #         grads = [g*multiplier for g in grad] if is_list else grad*multiplier
+            #         continue 
+            #     if is_list:
+            #         for i in range(len(grad)):
+            #             grads[i] = grads[i] + (grad[i] * multiplier) 
+            #     else:
+            #         grads += (grad * multiplier)
+            # return grads
         
         def error_f(self,*args):
-            #return self._map(self._error_f,*args)
-            size = args[0].shape[0]
-            if size <= self.max_data_size:
-                return self._error_f(*args)
-            e = 0
-            for batch in range(0,size,self.max_data_size):
-                e += (self._error_f(*[a[batch:batch+self.max_data_size,:] if isinstance(a, jnp.ndarray) else a for a in args]) * min(size-batch,self.max_data_size))
-            return e/size
+            res,self.error_batch_size = self._run_dynamic_batch(self._error_f,*args,batch_size=self.error_batch_size)
+            return np.sum([e[0] * e[1] for e in res],axis=0)
+            # size = args[0].shape[0]
+            # if size <= self.max_data_size:
+            #     return self._error_f(*args)
+            # e = 0
+            # for batch in range(0,size,self.max_data_size):
+            #     e += (self._error_f(*[a[batch:batch+self.max_data_size,:] if isinstance(a, jnp.ndarray) else a for a in args]) * min(size-batch,self.max_data_size))
+            # return e/size
         
         def forward_f(self,*args):
-            if args[0].shape[0] <= self.max_data_size:
-                return self._forward_f(*args)
-            outs = []
-            for batch in range(0,args[0].shape[0],self.max_data_size):
-                outs.append(self._forward_f(*[a[batch:batch+self.max_data_size,:] if isinstance(a, jnp.ndarray) else a  for a in args]))
-            return np.vstack(outs)
+            res,self.forward_batch_size = self._run_dynamic_batch(self._forward_f,*args,batch_size=self.forward_batch_size)
+            return np.vstack([r[0] for r in res])
+            # if args[0].shape[0] <= self.max_data_size:
+            #     return self._forward_f(*args)
+            # outs = []
+            # for batch in range(0,args[0].shape[0],self.max_data_size):
+            #     outs.append(self._forward_f(*[a[batch:batch+self.max_data_size,:] if isinstance(a, jnp.ndarray) else a  for a in args]))
+            # return np.vstack(outs)
 
         def get_coef(self):
             return [np.array(p.get_coef()) for p in self.parameters.values()]
@@ -573,15 +611,6 @@ class NNets:
             for index in self.iter_batches(Xtr.shape[0],lambda:[self.error_f(Xtr,Ttr),self.error_f(Xval,Tval)],**kwargs):
                 self.step(Xtr[index],Ttr[index])
             return self
-        
-        def _error_f(self,*data):
-            return self.compiled["error"](self._get_weights(),*data,**self._get_options(inference=True))
-
-        def _grad_f(self,*data):
-            return self.compiled["grad"](self._get_weights(),*data,**self._get_options(inference=False))
-        
-        def _forward_f(self,*data):
-            return self.compiled["forward"](self._get_weights(inference=True),*data,**self._get_options(inference=True))
         
         def compile_model(self,loss_f,forward_f,**kwargs):
             # self.compiled = tools.compile_model(loss_f,forward_f,argnums=len(self.parameters),**kwargs)
