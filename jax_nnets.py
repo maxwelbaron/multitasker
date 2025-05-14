@@ -1,7 +1,7 @@
 import numpy as np,jax,jax.numpy as jnp,json,abc,os,string,random
 from file_manager import store_file,load_file,access_locked_file,MODEL_DIRECTORY
 FLOAT_T= jnp.float32
-MAX_DATA_SIZE = 15000
+MAX_DATA_SIZE = 30000
 # MAX_DATA_SIZE = 2500
 
 
@@ -452,7 +452,7 @@ class NNets:
             return self.compiled["forward"](self._get_weights(inference=True),*data,**self._get_options(inference=True))
         
         def _run_dynamic_batch(self,f,*args,init_batch_size=None,min_batch_size=1):
-            batch_size = int(MAX_DATA_SIZE or init_batch_size)
+            batch_size = int(init_batch_size or MAX_DATA_SIZE)
             size = args[0].shape[0] 
             while batch_size > min_batch_size:
                 try:
@@ -603,7 +603,6 @@ class NNets:
         def step(self,*args):
             for g,p in zip(self.grad_f(*args),self.parameters.keys()):
                 self.parameters[p].step(g)
-            print("\tgrad batch size:",self.grad_batch_size)
         
         def _convert_data(self,*data,**kwargs):
             return self.data_model.standardize(*data)
@@ -759,4 +758,24 @@ class Functions:
         Y = X[:,:-Ws.shape[0]:stride,:] @ Ws[0,:,:]
         for i in range(1,Ws.shape[0]):
             Y = Y + (X[:,i:(X.shape[1] - Ws.shape[0]) + i:stride,:] @ Ws[i,:,:])
+        return Y + bias
+    
+
+    def convolution_2d(Ws,X,stride,padding=False):
+        #X = (batch,rows,cols,channel)
+        #Ws = [(patch_size,patch_size,channel, n_hiddens),(n_hiddens)]
+        Ws,bias = Ws
+        if padding: 
+            X = jnp.concatenate(
+                (jnp.zeros((X.shape[0],Ws.shape[0],X.shape[2],X.shape[3])),X),
+                axis = 1
+            )
+            X = jnp.concatenate(
+                (jnp.zeros((X.shape[0],X.shape[1],Ws.shape[1],X.shape[3])),X),
+                axis = 2
+            )
+        Y = X[:,:-Ws.shape[0]:stride,:-Ws.shape[1]:stride,:] @ Ws[0,0,:,:]
+        for i in range(1,Ws.shape[0]):
+            for j in range(1,Ws.shape[1]):
+                Y = Y + (X[:,i:(X.shape[1] - Ws.shape[0]) + i:stride,j:(X.shape[2] - Ws.shape[1]) + j:stride,:] @ Ws[i,j,:,:])
         return Y + bias
