@@ -46,7 +46,7 @@ class DataManager:
         "all":{},
         "standard":{"relative_features":[]},
         "relative":{"standard_features":[]},
-        "debug":{"class_names":["Amazon","Arlo","Eye"],"max_packets":500,"dataset":"IoT"}
+        "debug":{"class_names":["Amazon","Arlo","Eye"],"max_packets":10000}
     }
 
     class DataModel:
